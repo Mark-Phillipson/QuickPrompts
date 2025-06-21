@@ -41,12 +41,17 @@ export function activate(context: vscode.ExtensionContext) {
 	// The first prompt from Talon GPT Prompt List.md
 	const FIRST_PROMPT = `fix grammar formally: Fix any mistakes or irregularities in grammar, spelling, or formatting. Use a professional business tone. The text was created using voice dictation. Thus, there are likely to be issues regarding homophones and other misrecognitions. Do not change the original structure of the text.`;
 
-	// Helper to get OpenAI API key from settings
+	// Helper to get OpenAI API key from settings or environment variable
 	function getOpenAIApiKey(): string | undefined {
-		return vscode.workspace.getConfiguration('quickprompts').get('openaiApiKey');
+		const keyFromSettings = vscode.workspace.getConfiguration('quickprompts').get('openaiApiKey');
+		if (keyFromSettings && typeof keyFromSettings === 'string' && keyFromSettings.trim() !== '') {
+			return keyFromSettings;
+		}
+		// Fallback to environment variable
+		return process.env.OPENAI_API_KEY;
 	}
 
-	// Function to call OpenAI completions
+	// Function to call OpenAI chat completions (for gpt-4o and similar models)
 	async function getOpenAICompletion(prompt: string, input: string): Promise<string> {
 		const apiKey = getOpenAIApiKey();
 		if (!apiKey) {
@@ -54,13 +59,16 @@ export function activate(context: vscode.ExtensionContext) {
 			return '';
 		}
 		const openai = new OpenAI({ apiKey });
-		const completion = await openai.completions.create({
-			model: 'text-davinci-003',
-			prompt: `${prompt}\n\n${input}`,
+		const completion = await openai.chat.completions.create({
+			model: 'gpt-4o',
+			messages: [
+				{ role: 'system', content: prompt },
+				{ role: 'user', content: input }
+			],
 			max_tokens: 256,
 			temperature: 0.2,
 		});
-		return completion.choices[0]?.text?.trim() || '';
+		return completion.choices[0]?.message?.content?.trim() || '';
 	}
 
 	// Command: fix grammar formally (uses the first prompt)
@@ -77,13 +85,18 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Getting OpenAI completion...' }, async () => {
-			const result = await getOpenAICompletion(FIRST_PROMPT, selectedText);
-			if (result) {
-				// Replace selection with result
-				editor.edit(editBuilder => {
-					editBuilder.replace(selection, result);
-				});
-				vscode.window.showInformationMessage('OpenAI completion applied!');
+			try {
+				const result = await getOpenAICompletion(FIRST_PROMPT, selectedText);
+				vscode.window.showInformationMessage('result back' + result);
+				if (result) {
+					await editor.edit(editBuilder => {
+						editBuilder.replace(selection, result);
+					});
+					vscode.window.showInformationMessage('OpenAI completion applied!');
+				}
+			} catch (error: any) {
+				console.error('OpenAI error:', error);
+				vscode.window.showErrorMessage('Error from OpenAI: ' + (error?.message || error));
 			}
 		});
 	});
