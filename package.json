@@ -24,6 +24,10 @@
       {
         "command": "quickprompts.managePrompts",
         "title": "QuickPrompts: Manage Prompts"
+      },
+      {
+        "command": "quickprompts.runPrompt",
+        "title": "QuickPrompts: Run Prompt..."
       }
     ],
     "configuration": {

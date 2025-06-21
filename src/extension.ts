@@ -282,6 +282,47 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(fixGrammarFormallyDisposable);
 	context.subscriptions.push(promptManagerDisposable);
+
+	// Command: Run any prompt via quick pick
+	const runPromptDisposable = vscode.commands.registerCommand('quickprompts.runPrompt', async () => {
+		const prompts: Record<string, string> = context.globalState.get(PROMPT_KEY) || {};
+		const promptNames = Object.keys(prompts);
+		if (promptNames.length === 0) {
+			vscode.window.showWarningMessage('No prompts available. Please add prompts first.');
+			return;
+		}
+		const selected = await vscode.window.showQuickPick(promptNames, {
+			placeHolder: 'Select a prompt to run on the selected text',
+		});
+		if (!selected) { return; }
+		const prompt = prompts[selected];
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('No editor is active');
+			return;
+		}
+		const selection = editor.selection;
+		const selectedText = editor.document.getText(selection);
+		if (!selectedText) {
+			vscode.window.showInformationMessage('No text selected');
+			return;
+		}
+		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Running prompt: ${selected}` }, async () => {
+			try {
+				const result = await getOpenAICompletion(prompt, selectedText);
+				if (result) {
+					await editor.edit(editBuilder => {
+						editBuilder.replace(selection, result);
+					});
+					vscode.window.showInformationMessage(`Prompt '${selected}' applied!`);
+				}
+			} catch (error: any) {
+				console.error('OpenAI error:', error);
+				vscode.window.showErrorMessage('Error from OpenAI: ' + (error?.message || error));
+			}
+		});
+	});
+	context.subscriptions.push(runPromptDisposable);
 }
 
 // This method is called when your extension is deactivated
