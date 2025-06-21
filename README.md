@@ -17,6 +17,7 @@ QuickPrompts is a Visual Studio Code extension that allows you to select code or
 
 - Visual Studio Code version 1.70.0 or higher.
 - OpenAI API key (for AI-powered features). Set via `quickprompts.openaiApiKey` in settings or the `OPENAI_API_KEY` environment variable.
+- **Alternatively, you can set your OpenAI API key as an environment variable named `OPENAI_API_KEY`.**
 
 ## Extension Settings
 

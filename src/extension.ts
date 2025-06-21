@@ -105,24 +105,35 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// --- PROMPT STORAGE INITIALIZATION ---
 	const PROMPT_KEY = 'quickprompts.prompts';
+	interface PromptWithCategory {
+		key: string;
+		value: string;
+		category: string;
+	}
 	async function loadDefaultPromptsIfNeeded() {
-		const existing = context.globalState.get(PROMPT_KEY);
+		const existing = context.globalState.get<PromptWithCategory[]>(PROMPT_KEY);
 		if (existing) { return; } // Already initialized
 		const mdPath = path.join(context.extensionPath, 'Talon GPT Prompt List.md');
 		try {
 			const md = fs.readFileSync(mdPath, 'utf8');
-			const promptLines = md.split(/\r?\n/).filter(line => line.match(/^\w[\w\s-]+:/));
-			const prompts: Record<string, string> = {};
-			for (const line of promptLines) {
-				const idx = line.indexOf(':');
-				if (idx > 0) {
-					const key = line.slice(0, idx).trim();
-					const value = line.slice(idx + 1).trim();
-					prompts[key] = value;
+			const lines = md.split(/\r?\n/);
+			let currentCategory = '';
+			const prompts: PromptWithCategory[] = [];
+			for (const line of lines) {
+				const headingMatch = line.match(/^##+\s*(.+)$/);
+				if (headingMatch) {
+					currentCategory = headingMatch[1].trim();
+					continue;
+				}
+				const promptMatch = line.match(/^(\w[\w\s-]+):(.+)$/);
+				if (promptMatch) {
+					const key = promptMatch[1].trim();
+					const value = promptMatch[2].trim();
+					prompts.push({ key, value, category: currentCategory });
 				}
 			}
 			await context.globalState.update(PROMPT_KEY, prompts);
-			console.log('Default prompts loaded into global state.');
+			console.log('Default prompts with categories loaded into global state.');
 		} catch (err) {
 			console.error('Failed to load default prompts:', err);
 		}
@@ -139,19 +150,20 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 
 		// Load prompts from global state
-		const prompts: Record<string, string> = context.globalState.get(PROMPT_KEY) || {};
+		const prompts: PromptWithCategory[] = context.globalState.get(PROMPT_KEY) || [];
 
-		function getPromptsHtml(prompts: Record<string, string>) {
-			const rows = Object.entries(prompts).map(([key, value]) => `
+		function getPromptsHtml(prompts: PromptWithCategory[]) {
+			const rows = prompts.map(({ key, value, category }, idx) => `
 				<tr>
-					<td class="name-col"><input type="text" value="${key.replace(/"/g, '&quot;')}" data-key="${key}" class="prompt-key" /></td>
-					<td class="prompt-col"><textarea data-key="${key}" class="prompt-value">${value.replace(/</g, '&lt;')}</textarea></td>
-					<td><button data-action="delete" data-key="${key}">Delete</button></td>
+					<td class="name-col"><input type="text" value="${key.replace(/"/g, '&quot;')}" data-idx="${idx}" class="prompt-key" /></td>
+					<td class="prompt-col"><textarea data-idx="${idx}" class="prompt-value">${value.replace(/</g, '&lt;')}</textarea></td>
+					<td class="category-col"><input type="text" value="${category.replace(/"/g, '&quot;')}" data-idx="${idx}" class="prompt-category" /></td>
+					<td><button data-action="delete" data-idx="${idx}">Delete</button></td>
 				</tr>
 			`).join('');
 			return `
 				<table border="1" style="width:100%">
-					<tr><th class="name-col">Name</th><th class="prompt-col">Prompt</th><th>Action</th></tr>
+					<tr><th class="name-col">Name</th><th class="prompt-col">Prompt</th><th class="category-col">Category</th><th>Action</th></tr>
 					${rows}
 				</table>
 				<button id="add">Add New Prompt</button>
@@ -206,6 +218,13 @@ export function activate(context: vscode.ExtensionContext) {
 			border-radius: 3px;
 			font-family: var(--vscode-font-family, 'Segoe UI', Arial, sans-serif);
 		}
+		input.prompt-category {
+			background: #1e1e1e;
+			color: #d4d4d4;
+			border: 1px solid #444;
+			border-radius: 3px;
+			padding: 4px;
+		}
 		td {
 			vertical-align: top;
 		}
@@ -231,6 +250,12 @@ export function activate(context: vscode.ExtensionContext) {
 		th.prompt-col, td.prompt-col {
 			width: 100%;
 		}
+		th.category-col, td.category-col {
+			width: 180px;
+			max-width: 200px;
+			min-width: 100px;
+			white-space: nowrap;
+		}
 	</style>
 </head>
 <body>
@@ -244,7 +269,7 @@ export function activate(context: vscode.ExtensionContext) {
 		document.getElementById('add').onclick = function() {
 			const table = document.querySelector('table');
 			const row = table.insertRow(-1);
-			row.innerHTML = '<td><input type="text" class="prompt-key" /></td><td><textarea class="prompt-value"></textarea></td><td><button data-action="delete">Delete</button></td>';
+			row.innerHTML = '<td><input type="text" class="prompt-key" /></td><td><textarea class="prompt-value"></textarea></td><td><input type="text" class="prompt-category" /></td><td><button data-action="delete">Delete</button></td>';
 			row.querySelector('button[data-action="delete"]').onclick = function(e) {
 				const r = e.target.closest('tr');
 				r.parentNode.removeChild(r);
@@ -253,11 +278,13 @@ export function activate(context: vscode.ExtensionContext) {
 		document.getElementById('save').onclick = function() {
 			const keys = document.querySelectorAll('.prompt-key');
 			const values = document.querySelectorAll('.prompt-value');
-			const prompts = {};
+			const categories = document.querySelectorAll('.prompt-category');
+			const prompts = [];
 			for (let i = 0; i < keys.length; i++) {
 				const key = keys[i].value.trim();
 				const value = values[i].value.trim();
-				if (key) prompts[key] = value;
+				const category = categories[i].value.trim();
+				if (key) prompts.push({ key, value, category });
 			}
 			vscode.postMessage({ type: 'save', prompts });
 		};
@@ -285,17 +312,27 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Command: Run any prompt via quick pick
 	const runPromptDisposable = vscode.commands.registerCommand('quickprompts.runPrompt', async () => {
-		const prompts: Record<string, string> = context.globalState.get(PROMPT_KEY) || {};
-		const promptNames = Object.keys(prompts);
-		if (promptNames.length === 0) {
+		const prompts: PromptWithCategory[] = context.globalState.get(PROMPT_KEY) || [];
+		if (prompts.length === 0) {
 			vscode.window.showWarningMessage('No prompts available. Please add prompts first.');
 			return;
 		}
+		// Group prompts by category
+		const categories = Array.from(new Set(prompts.map(p => p.category).filter(Boolean)));
+		let selectedCategory: string | undefined = categories[0];
+		if (categories.length > 1) {
+			selectedCategory = await vscode.window.showQuickPick(categories, {
+				placeHolder: 'Select a prompt category',
+			});
+			if (!selectedCategory) { return; }
+		}
+		const filteredPrompts = prompts.filter(p => p.category === selectedCategory);
+		const promptNames = filteredPrompts.map(p => p.key);
 		const selected = await vscode.window.showQuickPick(promptNames, {
 			placeHolder: 'Select a prompt to run on the selected text',
 		});
 		if (!selected) { return; }
-		const prompt = prompts[selected];
+		const prompt = filteredPrompts.find(p => p.key === selected)?.value || '';
 		const editor = vscode.window.activeTextEditor;
 		if (!editor) {
 			vscode.window.showErrorMessage('No editor is active');

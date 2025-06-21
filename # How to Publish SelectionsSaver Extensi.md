@@ -56,6 +56,7 @@ vsce publish --pat <your-personal-access-token>
 npm version patch
 vsce package
 vsce publish --pat <your-personal-access-token>
+vsce publish --pat 01lEpAGCEYszC1Ut44QDVepDPFeyJvPJKLxnv5xZPnZJGrp00wJyJQQJ99BFACAAAAAAAAAAAAASAZDO3M2O
 ```
 
 or simply:
@@ -64,7 +65,8 @@ or simply:
 vsce publish patch
 ```
 
-> **Note:**
-> - Make sure you are in the `selectionssaver` directory when running these commands.
+> **Note:** Remember now
+> - Make sure you are in the `quickprompts` directory when running these commands.
 > - Replace `<your-personal-access-token>` with your actual token.
 > - For more details, see the [VSCE documentation](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+> - To create a Personal Access Token (PAT) in Azure DevOps, visit the [Azure DevOps PAT page](https://dev.azure.com/mspsystems/_usersSettings/tokens) (replace `your-organization` with your actual organization name). For more info, see the [official guide](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate).
