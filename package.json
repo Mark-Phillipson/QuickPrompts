@@ -20,6 +20,10 @@
       {
         "command": "quickprompts.fixGrammarFormally",
         "title": "QuickPrompts: Fix Grammar Formally"
+      },
+      {
+        "command": "quickprompts.managePrompts",
+        "title": "QuickPrompts: Manage Prompts"
       }
     ],
     "configuration": {

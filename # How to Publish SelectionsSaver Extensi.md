@@ -1,5 +1,11 @@
 # How to Publish SelectionsSaver Extension
 
+How to compile:
+
+```
+npm run compile
+```
+
 Follow these steps to publish a patch update for your VS Code extension:
 
 ## 1. Bump the Patch Version

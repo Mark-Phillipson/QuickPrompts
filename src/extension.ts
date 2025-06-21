@@ -2,6 +2,8 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -101,8 +103,185 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	});
 
+	// --- PROMPT STORAGE INITIALIZATION ---
+	const PROMPT_KEY = 'quickprompts.prompts';
+	async function loadDefaultPromptsIfNeeded() {
+		const existing = context.globalState.get(PROMPT_KEY);
+		if (existing) { return; } // Already initialized
+		const mdPath = path.join(context.extensionPath, 'Talon GPT Prompt List.md');
+		try {
+			const md = fs.readFileSync(mdPath, 'utf8');
+			const promptLines = md.split(/\r?\n/).filter(line => line.match(/^\w[\w\s-]+:/));
+			const prompts: Record<string, string> = {};
+			for (const line of promptLines) {
+				const idx = line.indexOf(':');
+				if (idx > 0) {
+					const key = line.slice(0, idx).trim();
+					const value = line.slice(idx + 1).trim();
+					prompts[key] = value;
+				}
+			}
+			await context.globalState.update(PROMPT_KEY, prompts);
+			console.log('Default prompts loaded into global state.');
+		} catch (err) {
+			console.error('Failed to load default prompts:', err);
+		}
+	}
+	loadDefaultPromptsIfNeeded();
+
+	// --- PROMPT MANAGER WEBVIEW ---
+	const promptManagerDisposable = vscode.commands.registerCommand('quickprompts.managePrompts', async () => {
+		const panel = vscode.window.createWebviewPanel(
+			'quickpromptsPromptManager',
+			'QuickPrompts: Manage Prompts',
+			vscode.ViewColumn.One,
+			{ enableScripts: true }
+		);
+
+		// Load prompts from global state
+		const prompts: Record<string, string> = context.globalState.get(PROMPT_KEY) || {};
+
+		function getPromptsHtml(prompts: Record<string, string>) {
+			const rows = Object.entries(prompts).map(([key, value]) => `
+				<tr>
+					<td class="name-col"><input type="text" value="${key.replace(/"/g, '&quot;')}" data-key="${key}" class="prompt-key" /></td>
+					<td class="prompt-col"><textarea data-key="${key}" class="prompt-value">${value.replace(/</g, '&lt;')}</textarea></td>
+					<td><button data-action="delete" data-key="${key}">Delete</button></td>
+				</tr>
+			`).join('');
+			return `
+				<table border="1" style="width:100%">
+					<tr><th class="name-col">Name</th><th class="prompt-col">Prompt</th><th>Action</th></tr>
+					${rows}
+				</table>
+				<button id="add">Add New Prompt</button>
+				<button id="save">Save Changes</button>
+			`;
+		}
+
+		panel.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Manage Prompts</title>
+	<style>
+		body {
+			background-color: #1e1e1e;
+			color: #d4d4d4;
+			font-family: var(--vscode-font-family, 'Segoe UI', Arial, sans-serif);
+		}
+		h2 { color: #d7ba7d; }
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			background: #252526;
+		}
+		th, td {
+			border: 1px solid #333;
+			padding: 6px 8px;
+		}
+		th {
+			background: #2d2d30;
+			color: #d7ba7d;
+		}
+		tr:nth-child(even) { background: #232323; }
+		tr:nth-child(odd) { background: #252526; }
+		input.prompt-key {
+			background: #1e1e1e;
+			color: #d4d4d4;
+			border: 1px solid #444;	
+			border-radius: 3px;
+			padding: 4px;
+		}
+		textarea.prompt-value {
+			width: 100%;
+			min-height: 60px;
+			height: 100%;
+			resize: vertical;
+			display: block;
+			box-sizing: border-box;
+			background: #1e1e1e;
+			color: #d4d4d4;
+			border: 1px solid #444;
+			border-radius: 3px;
+			font-family: var(--vscode-font-family, 'Segoe UI', Arial, sans-serif);
+		}
+		td {
+			vertical-align: top;
+		}
+		button {
+			background: #0e639c;
+			color: #fff;
+			border: none;
+			border-radius: 3px;
+			padding: 6px 12px;
+			margin: 2px;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		button:hover {
+			background: #1177bb;
+		}
+		th.name-col, td.name-col {
+			width: 220px;
+			max-width: 240px;
+			min-width: 120px;
+			white-space: nowrap;
+		}
+		th.prompt-col, td.prompt-col {
+			width: 100%;
+		}
+	</style>
+</head>
+<body>
+	<h2>Manage Prompts</h2>
+	<div id="prompt-table">
+		${getPromptsHtml(prompts)}
+	</div>
+	<script>
+	(function() {
+		const vscode = acquireVsCodeApi();
+		document.getElementById('add').onclick = function() {
+			const table = document.querySelector('table');
+			const row = table.insertRow(-1);
+			row.innerHTML = '<td><input type="text" class="prompt-key" /></td><td><textarea class="prompt-value"></textarea></td><td><button data-action="delete">Delete</button></td>';
+			row.querySelector('button[data-action="delete"]').onclick = function(e) {
+				const r = e.target.closest('tr');
+				r.parentNode.removeChild(r);
+			};
+		};
+		document.getElementById('save').onclick = function() {
+			const keys = document.querySelectorAll('.prompt-key');
+			const values = document.querySelectorAll('.prompt-value');
+			const prompts = {};
+			for (let i = 0; i < keys.length; i++) {
+				const key = keys[i].value.trim();
+				const value = values[i].value.trim();
+				if (key) prompts[key] = value;
+			}
+			vscode.postMessage({ type: 'save', prompts });
+		};
+		document.querySelectorAll('button[data-action="delete"]').forEach(function(btn) {
+			btn.onclick = function(e) {
+				const row = e.target.closest('tr');
+				row.parentNode.removeChild(row);
+			};
+		});
+	})();
+	</script>
+</body>
+</html>`;
+
+		panel.webview.onDidReceiveMessage(async msg => {
+			if (msg.type === 'save') {
+				await context.globalState.update(PROMPT_KEY, msg.prompts);
+				vscode.window.showInformationMessage('Prompts saved!');
+			}
+		});
+	});
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(fixGrammarFormallyDisposable);
+	context.subscriptions.push(promptManagerDisposable);
 }
 
 // This method is called when your extension is deactivated
