@@ -66,5 +66,6 @@
     "type": "git",
     "url": "https://github.com/mark-phillipson/QuickPrompts.git"
   },
-  "publisher": "MarcusVoiceCoder"
+  "publisher": "MarcusVoiceCoder",
+  "icon": "images/icon.png"
 }

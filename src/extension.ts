@@ -89,7 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Getting OpenAI completion...' }, async () => {
 			try {
 				const result = await getOpenAICompletion(FIRST_PROMPT, selectedText);
-				vscode.window.showInformationMessage('result back' + result);
+				vscode.window.showInformationMessage('result back ' + result);
 				if (result) {
 					await editor.edit(editBuilder => {
 						editBuilder.replace(selection, result);
