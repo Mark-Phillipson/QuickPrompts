@@ -366,6 +366,32 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	});
 	context.subscriptions.push(runPromptDisposable);
+
+	// Command: Set OpenAI Model
+	const setModelDisposable = vscode.commands.registerCommand('quickprompts.setOpenAIModel', async () => {
+		// List of current, non-deprecated OpenAI models (update as needed)
+		const models = [
+			{ label: 'gpt-4o', description: 'Latest flagship model (recommended)' },
+			{ label: 'gpt-4-turbo', description: 'High performance, lower cost' },
+			{ label: '$(pencil) Enter custom model name...', description: 'Type a model name not listed here' }
+		];
+		const pick = await vscode.window.showQuickPick(models, {
+			placeHolder: 'Select the OpenAI model to use for completions or enter a custom model name',
+		});
+		if (!pick) { return; }
+		let modelName = pick.label;
+		if (modelName.startsWith('$(pencil)')) {
+			const input = await vscode.window.showInputBox({
+				prompt: 'Enter the OpenAI model name (e.g., gpt-4o, gpt-4-turbo, etc.)',
+				placeHolder: 'gpt-4o',
+			});
+			if (!input) { return; }
+			modelName = input.trim();
+		}
+		await vscode.workspace.getConfiguration('quickprompts').update('openaiModel', modelName, vscode.ConfigurationTarget.Global);
+		vscode.window.showInformationMessage(`QuickPrompts: OpenAI model set to ${modelName}`);
+	});
+	context.subscriptions.push(setModelDisposable);
 }
 
 // This method is called when your extension is deactivated

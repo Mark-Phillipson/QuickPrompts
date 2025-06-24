@@ -28,6 +28,10 @@
       {
         "command": "quickprompts.runPrompt",
         "title": "QuickPrompts: Run Prompt..."
+      },
+      {
+        "command": "quickprompts.setOpenAIModel",
+        "title": "QuickPrompts: Set OpenAI Model"
       }
     ],
     "configuration": {
