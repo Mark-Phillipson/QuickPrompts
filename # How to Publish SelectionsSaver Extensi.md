@@ -56,7 +56,6 @@ vsce publish --pat <your-personal-access-token>
 npm version patch
 vsce package
 vsce publish --pat <your-personal-access-token>
-vsce publish --pat 01lEpAGCEYszC1Ut44QDVepDPFeyJvPJKLxnv5xZPnZJGrp00wJyJQQJ99BFACAAAAAAAAAAAAASAZDO3M2O
 ```
 
 or simply:
