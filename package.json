@@ -36,6 +36,11 @@
           "type": "string",
           "description": "Your OpenAI API key for completions.",
           "default": ""
+        },
+        "quickprompts.openaiModel": {
+          "type": "string",
+          "description": "The OpenAI model to use for completions. Defaults to gpt-4o. Recommended: use the latest available OpenAI models such as gpt-4o or any current model listed in your OpenAI account. Avoid using expired or deprecated models.",
+          "default": "gpt-4o"
         }
       }
     }

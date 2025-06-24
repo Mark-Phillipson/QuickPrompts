@@ -53,6 +53,11 @@ export function activate(context: vscode.ExtensionContext) {
 		return process.env.OPENAI_API_KEY;
 	}
 
+	// Helper to get OpenAI model from settings
+	function getOpenAIModel(): string {
+		return vscode.workspace.getConfiguration('quickprompts').get('openaiModel', 'gpt-4o');
+	}
+
 	// Function to call OpenAI chat completions (for gpt-4o and similar models)
 	async function getOpenAICompletion(prompt: string, input: string): Promise<string> {
 		const apiKey = getOpenAIApiKey();
@@ -61,8 +66,9 @@ export function activate(context: vscode.ExtensionContext) {
 			return '';
 		}
 		const openai = new OpenAI({ apiKey });
+		const model = getOpenAIModel();
 		const completion = await openai.chat.completions.create({
-			model: 'gpt-4o',
+			model,
 			messages: [
 				{ role: 'system', content: prompt },
 				{ role: 'user', content: input }

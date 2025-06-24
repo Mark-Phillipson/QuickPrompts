@@ -22,6 +22,7 @@ QuickPrompts is a Visual Studio Code extension that allows you to select code or
 ## Extension Settings
 
 - `quickprompts.openaiApiKey`: Set your OpenAI API key for completions.
+- `quickprompts.openaiModel`: (Optional) Set the OpenAI model to use for completions. Defaults to `gpt-4o`. Recommended: use the latest available OpenAI models such as `gpt-4o` or any current model listed in your OpenAI account. Avoid using expired or deprecated models.
 
 ## Usage
 
