@@ -158,25 +158,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// Load prompts from global state
 		const prompts: PromptWithCategory[] = context.globalState.get(PROMPT_KEY) || [];
 
-		function getPromptsHtml(prompts: PromptWithCategory[]) {
-			const rows = prompts.map(({ key, value, category }, idx) => `
-				<tr>
-					<td class="name-col"><input type="text" value="${key.replace(/"/g, '&quot;')}" data-idx="${idx}" class="prompt-key" /></td>
-					<td class="prompt-col"><textarea data-idx="${idx}" class="prompt-value">${value.replace(/</g, '&lt;')}</textarea></td>
-					<td class="category-col"><input type="text" value="${category.replace(/"/g, '&quot;')}" data-idx="${idx}" class="prompt-category" /></td>
-					<td><button data-action="delete" data-idx="${idx}">Delete</button></td>
-				</tr>
-			`).join('');
-			return `
-				<table border="1" style="width:100%">
-					<tr><th class="name-col">Name</th><th class="prompt-col">Prompt</th><th class="category-col">Category</th><th>Action</th></tr>
-					${rows}
-				</table>
-				<button id="add">Add New Prompt</button>
-				<button id="save">Save Changes</button>
-			`;
-		}
-
+		// Add CSS for red border on focus for mandatory fields
 		panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -207,7 +189,7 @@ export function activate(context: vscode.ExtensionContext) {
 		input.prompt-key {
 			background: #1e1e1e;
 			color: #d4d4d4;
-			border: 1px solid #444;	
+			border: 1px solid #444; 
 			border-radius: 3px;
 			padding: 4px;
 		}
@@ -262,44 +244,136 @@ export function activate(context: vscode.ExtensionContext) {
 			min-width: 100px;
 			white-space: nowrap;
 		}
+		#search-box {
+			width: 60%;
+			margin-bottom: 12px;
+			padding: 6px;
+			font-size: 1em;
+			background: #232323;
+			color: #d4d4d4;
+			border: 1px solid #444;
+			border-radius: 3px;
+		}
+		input.prompt-key:focus, textarea.prompt-value:focus, input.prompt-category:focus {
+			border: 2px solid #f48771 !important;
+			outline: none;
+		}
+		input.prompt-key, textarea.prompt-value, input.prompt-category {
+			border: 1px solid #444;
+		}
 	</style>
 </head>
 <body>
 	<h2>Manage Prompts</h2>
-	<div id="prompt-table">
-		${getPromptsHtml(prompts)}
-	</div>
+	<input id="search-box" type="text" placeholder="Search by name or prompt contents..." />
+	<div id="prompt-table"></div>
 	<script>
 	(function() {
 		const vscode = acquireVsCodeApi();
-		document.getElementById('add').onclick = function() {
-			const table = document.querySelector('table');
-			const row = table.insertRow(-1);
-			row.innerHTML = '<td><input type="text" class="prompt-key" /></td><td><textarea class="prompt-value"></textarea></td><td><input type="text" class="prompt-category" /></td><td><button data-action="delete">Delete</button></td>';
-			row.querySelector('button[data-action="delete"]').onclick = function(e) {
-				const r = e.target.closest('tr');
-				r.parentNode.removeChild(r);
-			};
-		};
-		document.getElementById('save').onclick = function() {
-			const keys = document.querySelectorAll('.prompt-key');
-			const values = document.querySelectorAll('.prompt-value');
-			const categories = document.querySelectorAll('.prompt-category');
-			const prompts = [];
-			for (let i = 0; i < keys.length; i++) {
-				const key = keys[i].value.trim();
-				const value = values[i].value.trim();
-				const category = categories[i].value.trim();
-				if (key) prompts.push({ key, value, category });
+		let allPrompts = ${JSON.stringify(prompts)};
+
+		function escapeHtml(text) {
+			return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+		}
+
+		function getPromptsHtml(prompts) {
+			var html = '<button id="add" accesskey="a"><span style="text-decoration: underline">A</span>dd New Prompt</button>';
+			html += '<table border="1" style="width:100%">';
+			html += '<tr><th class="name-col">Name</th><th class="prompt-col">Prompt</th><th class="category-col">Category</th><th>Action</th></tr>';
+			for (var i = 0; i < prompts.length; i++) {
+				const isNew = prompts[i].__new;
+				html += '<tr>' +
+					'<td class="name-col"><input type="text" value="' + escapeHtml(prompts[i].key) + '" data-idx="' + i + '" class="prompt-key" /></td>' +
+					'<td class="prompt-col"><textarea data-idx="' + i + '" class="prompt-value">' + escapeHtml(prompts[i].value) + '</textarea></td>' +
+					'<td class="category-col"><input type="text" value="' + escapeHtml(prompts[i].category) + '" data-idx="' + i + '" class="prompt-category" /></td>' +
+					'<td><button data-action="delete" data-idx="' + i + '"' + (isNew ? ' disabled' : '') + '>Delete</button></td>' +
+				'</tr>';
 			}
-			vscode.postMessage({ type: 'save', prompts });
-		};
-		document.querySelectorAll('button[data-action="delete"]').forEach(function(btn) {
-			btn.onclick = function(e) {
-				const row = e.target.closest('tr');
-				row.parentNode.removeChild(row);
-			};
+			html += '</table>';
+			html += '<button id="add" accesskey="a"><span style="text-decoration: underline">A</span>dd New Prompt</button>';
+			html += '<div id="error-message" style="color:#f48771;min-height:1.5em;margin-top:8px;"></div>';
+			html += '<button id="save" accesskey="c">Save <span style="text-decoration: underline">C</span>hanges</button>';
+			return html;
+		}
+
+		function renderTable(filteredPrompts) {
+			document.getElementById('prompt-table').innerHTML = getPromptsHtml(filteredPrompts);
+			attachRowHandlers();
+		}
+
+		function attachRowHandlers() {
+			const addBtns = document.querySelectorAll('#add');
+			addBtns.forEach(function(addBtn) {
+				addBtn.onclick = function() {
+					const table = document.querySelector('table');
+					const row = table.insertRow(-1);
+					row.innerHTML = '<td class="name-col"><input type="text" class="prompt-key" /></td><td class="prompt-col"><textarea class="prompt-value"></textarea></td><td class="category-col"><input type="text" class="prompt-category" /></td><td><button data-action="delete" disabled>Delete</button></td>';
+					row.querySelector('button[data-action="delete"]').onclick = function(e) {
+						const r = e.target.closest('tr');
+						r.parentNode.removeChild(r);
+					};
+					// Focus the prompt name field in the new row
+					const lastPromptKey = row.querySelector('.prompt-key');
+					if (lastPromptKey) lastPromptKey.focus();
+				};
+			});
+			const saveBtn = document.getElementById('save');
+			if (saveBtn) {
+				saveBtn.onclick = function() {
+					const keys = document.querySelectorAll('.prompt-key');
+					const values = document.querySelectorAll('.prompt-value');
+					const categories = document.querySelectorAll('.prompt-category');
+					const prompts = [];
+					let hasError = false;
+					for (let i = 0; i < keys.length; i++) {
+						const key = keys[i].value.trim();
+						const value = values[i].value.trim();
+						const category = categories[i].value.trim();
+						if (!key || !value || !category) {
+							hasError = true;
+							break;
+						}
+						prompts.push({ key, value, category });
+					}
+					const errorDiv = document.getElementById('error-message');
+					if (hasError) {
+						errorDiv.textContent = 'All fields (Name, Prompt, and Category) must be filled in for every record.';
+						return;
+					} else {
+						errorDiv.textContent = '';
+					}
+					// After save, all prompts are considered saved (remove __new)
+					prompts.forEach(p => { delete p.__new; });
+					vscode.postMessage({ type: 'save', prompts });
+					allPrompts = prompts;
+					// Enable all delete buttons after successful save
+					document.querySelectorAll('button[data-action="delete"]').forEach(function(btn) {
+						btn.disabled = false;
+					});
+				};
+			}
+			document.querySelectorAll('button[data-action="delete"]').forEach(function(btn) {
+				btn.onclick = function(e) {
+					const row = e.target.closest('tr');
+					row.parentNode.removeChild(row);
+				};
+			});
+		}
+
+		// Initial render
+		// Mark new/unsaved prompts with __new property
+		allPrompts = allPrompts.map(p => ({ ...p }));
+		renderTable(allPrompts);
+
+		document.getElementById('search-box').addEventListener('input', function(e) {
+			const val = e.target.value.toLowerCase();
+			const filtered = allPrompts.filter(function(p) {
+				return p.key.toLowerCase().includes(val) || p.value.toLowerCase().includes(val);
+			});
+			renderTable(filtered);
 		});
+
+		document.getElementById('search-box').focus();
 	})();
 	</script>
 </body>
