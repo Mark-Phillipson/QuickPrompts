@@ -21,3 +21,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Changed
 - All commands are now registered in `package.json` for Command Palette access.
 - UI and code refactored for scalability and user-friendliness.
+
+## [1.1.1] - 2025-06-24
+### Improved
+- Added a red border to all mandatory fields (Name, Prompt, Category) when focused in the prompt manager webview, to visually indicate they are required.
+- Improved accessibility and usability of the prompt management UI.
+
+### Known Issues
+- The Delete button is intended to be disabled for new/unsaved records, but is currently not disabled due to a UI logic issue. This will be addressed in a future update.
