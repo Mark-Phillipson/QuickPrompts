@@ -407,12 +407,25 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!selectedCategory) { return; }
 		}
 		const filteredPrompts = prompts.filter(p => p.category === selectedCategory);
-		const promptNames = filteredPrompts.map(p => p.key);
-		const selected = await vscode.window.showQuickPick(promptNames, {
+
+		// Create QuickPickItems with prompt previews
+		const promptItems = filteredPrompts.map(p => {
+			// Truncate prompt to first 100 characters for preview
+			const preview = p.value.length > 100 ? p.value.substring(0, 100) + '...' : p.value;
+			return {
+				label: p.key,
+				description: preview,
+				detail: `Category: ${p.category}`,
+				promptValue: p.value
+			};
+		});
+
+		const selected = await vscode.window.showQuickPick(promptItems, {
 			placeHolder: 'Select a prompt to run on the selected text',
+			matchOnDescription: true, // Allow searching within the prompt preview
 		});
 		if (!selected) { return; }
-		const prompt = filteredPrompts.find(p => p.key === selected)?.value || '';
+		const prompt = selected.promptValue;
 		const editor = vscode.window.activeTextEditor;
 		if (!editor) {
 			vscode.window.showErrorMessage('No editor is active');
@@ -424,14 +437,14 @@ export function activate(context: vscode.ExtensionContext) {
 			vscode.window.showInformationMessage('No text selected');
 			return;
 		}
-		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Running prompt: ${selected}` }, async () => {
+		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Running prompt: ${selected.label}` }, async () => {
 			try {
 				const result = await getOpenAICompletion(prompt, selectedText);
 				if (result) {
 					await editor.edit(editBuilder => {
 						editBuilder.replace(selection, result);
 					});
-					vscode.window.showInformationMessage(`Prompt '${selected}' applied!`);
+					vscode.window.showInformationMessage(`Prompt '${selected.label}' applied!`);
 				}
 			} catch (error: any) {
 				console.error('OpenAI error:', error);
