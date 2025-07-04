@@ -4,6 +4,9 @@ QuickPrompts is a Visual Studio Code extension that allows you to select code or
 
 ## Features
 
+- **Enhanced prompt selection with previews:** When selecting prompts, you'll see a preview of the first 100 characters of each prompt's content, making it easier to choose the right prompt for your needs.
+- **Smart category selection:** Category selection shows the first 4 prompt names in each category with a count of additional prompts (e.g., "fix grammar, summarize text, translate, review code, +3 more"), providing better context for category selection.
+- **Advanced search capabilities:** Search functionality works across both category selection (by prompt names) and prompt selection (by prompt names and content), making it easy to find the right prompt quickly.
 - **Run any prompt on selected text:** Use the Command Palette to run any user-defined prompt on your current selection. Prompts are powered by OpenAI (gpt-4o) completions.
 - **Prompt management UI:** Add, edit, or delete prompts using a user-friendly, dark mode-compatible webview interface.
 - **Persistent prompt storage:** Prompts are stored in VS Code's global state and persist across sessions.
@@ -28,8 +31,12 @@ QuickPrompts is a Visual Studio Code extension that allows you to select code or
 
 1. **Select text/code** in your editor.
 2. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
-3. Run `QuickPrompts: Run Prompt...` and pick a prompt to apply.
-4. To manage prompts, run `QuickPrompts: Manage Prompts` for a full-featured UI.
+3. Run `QuickPrompts: Run Prompt...`:
+   - If you have multiple categories, first select a category. You'll see the first 4 prompt names in each category to help you choose.
+   - Then select a specific prompt. Each prompt shows a preview of its content (first 100 characters) to help you pick the right one.
+   - You can search by typing prompt names or content at any step.
+4. The selected prompt will be applied to your selected text, and the result will replace your selection.
+5. To manage prompts, run `QuickPrompts: Manage Prompts` for a full-featured UI where you can add, edit, or delete prompts.
 
 ## Known Issues
 

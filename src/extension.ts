@@ -401,10 +401,27 @@ export function activate(context: vscode.ExtensionContext) {
 		const categories = Array.from(new Set(prompts.map(p => p.category).filter(Boolean)));
 		let selectedCategory: string | undefined = categories[0];
 		if (categories.length > 1) {
-			selectedCategory = await vscode.window.showQuickPick(categories, {
-				placeHolder: 'Select a prompt category',
+			// Create category items with preview of first few prompts in each category
+			const categoryItems = categories.map(category => {
+				const categoryPrompts = prompts.filter(p => p.category === category);
+				const firstFewNames = categoryPrompts.slice(0, 4).map(p => p.key);
+				const preview = firstFewNames.join(', ');
+				const moreCount = categoryPrompts.length - 4;
+				const description = moreCount > 0 ? `${preview}, +${moreCount} more` : preview;
+
+				return {
+					label: category,
+					description: description,
+					detail: `${categoryPrompts.length} prompt${categoryPrompts.length === 1 ? '' : 's'} in this category`
+				};
 			});
-			if (!selectedCategory) { return; }
+
+			const selectedCategoryItem = await vscode.window.showQuickPick(categoryItems, {
+				placeHolder: 'Select a prompt category',
+				matchOnDescription: true, // Allow searching within the prompt names
+			});
+			if (!selectedCategoryItem) { return; }
+			selectedCategory = selectedCategoryItem.label;
 		}
 		const filteredPrompts = prompts.filter(p => p.category === selectedCategory);
 
